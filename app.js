@@ -540,6 +540,8 @@ function finishWorkout(updateRoutine) {
   save(); closeAllModals(); render(); scrollTo(0, 0);
   const prs = wPrCount(done);
   toast(prs ? `Treino salvo! 🏆 ${prs} recorde(s)` : 'Treino salvo!');
+  // O navegador costuma aceitar depois que a pessoa usa o app; tenta de novo ao salvar um treino.
+  if (ui.persisted !== true) requestPersist();
 }
 
 /* ---------- timer de descanso ---------- */
@@ -741,6 +743,9 @@ function settingsView() {
     <div class="trow"><span class="grow">Descanso padrão</span><button class="btn small" data-a="defaultRest">${fmtRest(st.rest)}</button></div>
     <div class="trow"><span class="grow">Peso da barra (${unit()})</span><input class="cell" inputmode="decimal" value="${inW(st.bar)}" data-f="bar"></div>
     <div class="trow"><span class="grow">Som ao fim do descanso</span><button class="toggle ${st.sound ? 'on' : ''}" data-a="toggleSound" aria-label="Som"><i></i></button></div>
+    <div class="trow"><span class="grow">Armazenamento dos dados<small class="muted">Protege contra limpeza automática do navegador</small></span>
+      ${ui.persisted === true ? persistLabel() : `<button class="btn small" data-a="persist">${ui.persisted === 'unsupported' ? 'Não suportado' : 'Pedir de novo'}</button>`}</div>
+    ${ui.persisted === false ? '<p class="muted small">O navegador ainda não autorizou. Instale o app na tela inicial e use por alguns dias; ele tenta de novo sozinho.</p>' : ''}
     <hr>
     <button class="btn block" data-a="exportData">Exportar backup (JSON)</button>
     <label class="btn block">Importar backup<input type="file" accept="application/json,.json" hidden data-f="import"></label>
@@ -1005,6 +1010,10 @@ const A = {
       S = defaultState(); invalidateEx(); stopRest(); ui.workoutOpen = false; save(); closeAllModals(); render();
     });
   },
+  async persist() {
+    await requestPersist();
+    toast(ui.persisted === true ? 'Dados protegidos ✓' : 'O navegador ainda não autorizou');
+  },
   plateCalc() { const v = num($('#platein').value); ui.plateKg = v ? fromDisp(v) : 0; rerenderTopModal(); },
   // modais
   closeModal() { closeModal(); },
@@ -1092,6 +1101,25 @@ setInterval(() => {
   const t = fmtClock(Date.now() - S.active.start);
   document.querySelectorAll('[data-elapsed]').forEach(n => { n.textContent = t; });
 }, 1000);
+
+/* ---------- armazenamento permanente ---------- */
+// Pede ao navegador para não apagar os dados do app sozinho (por falta de espaço ou inatividade).
+// O navegador decide sem perguntar na maioria dos casos; app instalado e uso frequente ajudam.
+ui.persisted = null;
+async function requestPersist() {
+  try {
+    if (!navigator.storage || !navigator.storage.persist) { ui.persisted = 'unsupported'; return; }
+    ui.persisted = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+  } catch (e) { ui.persisted = 'unsupported'; }
+  if (ui.modals.length) rerenderTopModal();
+}
+function persistLabel() {
+  if (ui.persisted === true) return '<span class="okc">Permanente ✓</span>';
+  if (ui.persisted === false) return '<span class="muted">Ainda não autorizado</span>';
+  if (ui.persisted === 'unsupported') return '<span class="muted">Não suportado</span>';
+  return '<span class="muted">Verificando…</span>';
+}
+requestPersist();
 
 /* ---------- início ---------- */
 if (S.active) ui.workoutOpen = true;

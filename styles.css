@@ -189,6 +189,7 @@ body:not(.in-workout) #restbar { bottom: calc(var(--tabs-h) + var(--safe-b)); }
 .dsets > div { display: flex; align-items: center; gap: 10px; }
 .dsets .setlbl { height: 26px; min-width: 26px; font-size: 13px; }
 .prtxt { color: var(--gold); }
+.okc { color: var(--ok); font-weight: 600; font-size: 14px; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; outline: 0; color: var(--fg); }
 .input:focus { border-color: var(--accent-text); }
