@@ -60,6 +60,9 @@ body.in-workout #tabs { display: none; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
 
 button, input, select, textarea { font: inherit; color: inherit; }
+/* 16px nos campos: abaixo disso o iPhone dá zoom ao tocar e demora para liberar a digitação */
+input, select, textarea { font-size: 16px; }
+html { touch-action: manipulation; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
 button:disabled { opacity: .4; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
@@ -272,12 +275,12 @@ body:not(.in-workout):has(#activebar:not([hidden])) #restbar { bottom: calc(var(
 .sethead.plain, .setrow:not(:has(.chk)) { grid-template-columns: 38px 1fr 1fr; }
 .sethead { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding: 0 6px 6px; text-align: center; }
 .sethead .ic { width: 14px; height: 14px; margin: auto; }
-.setrow { padding: 5px 6px; border-radius: 12px; position: relative; margin-bottom: 2px; transition: background .2s; }
+.setrow { padding: 5px 6px; border-radius: 12px; position: relative; transition: background .2s; }
 .setrow.done { background: linear-gradient(90deg, rgba(52, 211, 153, .18), rgba(52, 211, 153, .06)); box-shadow: inset 3px 0 0 var(--ok); }
 .setlbl { height: 34px; border-radius: 10px; font-weight: 800; background: var(--surface-2); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; min-width: 34px; }
 .setlbl.tW { color: var(--gold); border-color: rgba(251, 191, 36, .3); } .setlbl.tD { color: var(--cyan); border-color: rgba(34, 211, 238, .3); } .setlbl.tF { color: var(--danger); border-color: rgba(248, 113, 113, .3); }
 .prev { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; height: 34px; font-variant-numeric: tabular-nums; }
-.cell { width: 100%; min-width: 0; height: 36px; text-align: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; outline: 0; font-weight: 700; font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s; }
+.cell { width: 100%; min-width: 0; height: 36px; text-align: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; outline: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cell:focus { border-color: var(--accent-text); box-shadow: 0 0 0 3px rgba(167, 139, 250, .18); }
 .cell::placeholder { color: #6f6880; font-weight: 500; }
 .setrow.done .cell { background: transparent; border-color: transparent; }
@@ -401,3 +404,22 @@ body:not(.in-workout):has(#activebar:not([hidden])) #toast-root { bottom: calc(v
 .exdemo img + img { animation: exdemo 2.4s steps(1, end) infinite; }
 @keyframes exdemo { 0% { opacity: 0; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .exdemo img + img { animation: none; opacity: 0; } }
+/* deslizar a série para a esquerda: aparece "Remover" */
+.swipe { position: relative; overflow: hidden; margin-bottom: 2px; border-radius: 12px; }
+.swipe .setrow { touch-action: pan-y; }
+.swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 92px; display: none; align-items: center; justify-content: center; gap: 5px;
+  background: linear-gradient(135deg, #f87171, #dc2626); color: #fff; font-weight: 750; font-size: 13.5px; border-radius: 0 12px 12px 0; }
+.swipe-del .ic { width: 16px; height: 16px; }
+.swipe.open .swipe-del, .swipe.swiping .swipe-del { display: flex; }
+
+/* segurar o exercício e arrastar para reordenar */
+.excard-head { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.excard.dragging { position: relative; z-index: 30; box-shadow: 0 24px 50px -12px rgba(0, 0, 0, .85), 0 0 0 2px var(--accent-text); transition: none; }
+body.dragging-ex { -webkit-user-select: none; user-select: none; overscroll-behavior: contain; }
+body.dragging-ex .excard:not(.dragging) { transition: transform .15s; }
+
+/* descanso + botão de série no topo do exercício */
+.exactions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.exactions .restlink { margin: 0; }
+.restlink.addlink { background: rgba(52, 211, 153, .14); border-color: rgba(52, 211, 153, .28); color: #6ee7b7; }
+.icon-btn.danger { color: var(--danger); }

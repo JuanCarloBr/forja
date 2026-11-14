@@ -207,6 +207,7 @@ const ICON = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   dots: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
@@ -362,7 +363,7 @@ function viewTrain() {
 function hasImg(ex) { return !ex.custom && window.EX_IMG.has(ex.id); }
 function avatar(ex) {
   const c = window.MUSCLE_COLORS[ex.muscle] || '#64748b';
-  if (hasImg(ex)) return `<span class="avatar photo" style="--c:${c}"><img src="img/ex/${ex.id}-0.jpg" alt="" loading="lazy" decoding="async"></span>`;
+  if (hasImg(ex)) return `<span class="avatar photo" style="--c:${c}"><img src="img/ex/${ex.id}-0.jpg" alt="" loading="lazy" decoding="async" draggable="false"></span>`;
   const ini = ex.name.replace(/\(.*?\)/g, ' ').replace(/[^\p{L}\s]/gu, '').split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || (ex.name.match(/[\p{L}\d]/u) || ['?'])[0].toUpperCase();
   return `<span class="avatar" style="--c:${c}">${esc(ini)}</span>`;
 }
@@ -570,6 +571,7 @@ function viewWorkout() {
   return `<header class="whead">
       <button class="icon-btn" data-a="minimize" aria-label="Minimizar">${icon('down')}</button>
       <span class="grow center"><b>Treino</b></span>
+      <button class="icon-btn danger" data-a="discard" aria-label="Descartar treino">${icon('trash')}</button>
       <button class="btn primary small" data-a="finish">Concluir</button>
     </header>
     <input class="title-input" value="${esc(w.name)}" data-f="wname" aria-label="Nome do treino">
@@ -600,20 +602,24 @@ function exerciseCard(e, ei, scope) {
     const phW = p && p.w ? inW(p.w) : (ex.kind === 'reps' ? '' : '0');
     const phR = p && p.r ? p.r : '0';
     const pr = s.pr && s.pr.length ? `<span class="prb" title="Recorde">${icon('trophy')}</span>` : '';
-    return `<div class="setrow ${s.done ? 'done' : ''}" data-e="${ei}" data-s="${si}">
+    return `<div class="swipe"><button class="swipe-del" data-a="delSet" data-scope="${scope}" data-e="${ei}" data-s="${si}" tabindex="-1">${icon('trash')} Remover</button>
+    <div class="setrow ${s.done ? 'done' : ''}" data-e="${ei}" data-s="${si}">
       <button class="setlbl t${s.type || 'N'}" data-a="setMenu" data-scope="${scope}" data-e="${ei}" data-s="${si}">${setLabel(s, n)}</button>
       ${active ? `<button class="prev" data-a="usePrev" data-e="${ei}" data-s="${si}" ${p ? '' : 'disabled'}>${prevTxt}</button>` : ''}
       <input class="cell" inputmode="decimal" value="${inW(s.w)}" placeholder="${phW}" data-f="w" data-scope="${scope}" data-e="${ei}" data-s="${si}" aria-label="Peso">
       <input class="cell" inputmode="numeric" value="${s.r ?? ''}" placeholder="${phR}" data-f="r" data-scope="${scope}" data-e="${ei}" data-s="${si}" aria-label="Repetições">
       ${active ? `<button class="chk ${s.done ? 'on' : ''}" data-a="toggleSet" data-e="${ei}" data-s="${si}" aria-label="Concluir série">${icon('check')}</button>${pr}` : ''}
-    </div>`;
+    </div></div>`;
   }).join('');
-  return `<section class="card excard">
+  return `<section class="card excard" data-scope="${scope}" data-e="${ei}">
     <div class="excard-head">${avatar(ex)}
       <button class="exname grow" data-a="exDetail" data-id="${ex.id}">${esc(ex.name)}</button>
       <button class="icon-btn" data-a="exMenu" data-scope="${scope}" data-e="${ei}" aria-label="Opções do exercício">${icon('dots')}</button></div>
     <textarea class="note" rows="1" placeholder="Adicionar observação" data-f="note" data-scope="${scope}" data-e="${ei}">${esc(e.notes || '')}</textarea>
-    <button class="restlink" data-a="restMenu" data-scope="${scope}" data-e="${ei}">${icon('timer')} Descanso: ${fmtRest(e.rest ?? S.settings.rest)}</button>
+    <div class="exactions">
+      <button class="restlink" data-a="restMenu" data-scope="${scope}" data-e="${ei}">${icon('timer')} Descanso: ${fmtRest(e.rest ?? S.settings.rest)}</button>
+      <button class="restlink addlink" data-a="addSet" data-scope="${scope}" data-e="${ei}">${icon('plus')} Série</button>
+    </div>
     <div class="sethead ${active ? '' : 'plain'}"><span>Série</span>${active ? '<span>Anterior</span>' : ''}<span>${ex.kind === 'reps' ? '+' + unit() : unit()}</span><span>Reps</span>${active ? `<span>${icon('check')}</span>` : ''}</div>
     ${rows}
     <button class="btn ghost block small" data-a="addSet" data-scope="${scope}" data-e="${ei}">${icon('plus')} Adicionar série</button>
@@ -1165,9 +1171,16 @@ const A = {
   },
   doFinish(el) { finishWorkout(!!el.dataset.upd); },
   discard() {
-    confirmBox('Descartar treino?', 'Tudo o que você registrou neste treino será perdido.', 'Descartar', () => {
-      S.active = null; ui.workoutOpen = false; stopRest(); save(); render();
-    });
+    const drop = () => { S.active = null; ui.workoutOpen = false; stopRest(); save(); render(); };
+    // Início sem querer: se nada foi marcado nem preenchido, descarta direto, sem perguntar.
+    const touched = S.active.exercises.some(e => e.sets.some(s => s.done || s.w || s.r));
+    if (!touched) { drop(); toast('Treino descartado'); return; }
+    confirmBox('Descartar treino?', 'Tudo o que você registrou neste treino será perdido.', 'Descartar', drop);
+  },
+  delSet(el) {
+    const scope = el.dataset.scope, e = scopeObj(scope).exercises[+el.dataset.e];
+    e.sets.splice(+el.dataset.s, 1);
+    if (scope === 'active') { save(); render(); } else rerenderTopModal();
   },
   // perfil
   chartMetric(el) { ui.chartMetric = el.dataset.k; render(); },
@@ -1296,6 +1309,130 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('focusin', e => { if (e.target.classList.contains('cell')) e.target.select(); });
 function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+/* ---------- gestos: deslizar série para remover / segurar exercício para reordenar ---------- */
+const SWIPE_W = 92;
+let swipe = null, openSwipe = null, dragEx = null, suppressClickUntil = 0;
+
+function closeSwipe(except) {
+  if (openSwipe && openSwipe !== except) {
+    const r = openSwipe.querySelector('.setrow');
+    openSwipe.classList.remove('open'); if (r) r.style.transform = '';
+    openSwipe = null;
+  }
+}
+function swipeSet(wrap, x, animate) {
+  const row = wrap.querySelector('.setrow');
+  row.style.transition = animate ? 'transform .2s cubic-bezier(.2, .8, .2, 1)' : 'none';
+  row.style.transform = x ? `translateX(${x}px)` : '';
+  wrap.classList.toggle('open', x < 0);
+}
+document.addEventListener('pointerdown', e => {
+  const wrap = e.target.closest('.swipe');
+  if (!e.target.closest('.swipe-del')) closeSwipe(wrap && wrap.classList.contains('open') ? wrap : null);
+  if (!wrap || e.target.closest('.swipe-del') || (e.pointerType === 'mouse' && (e.button !== 0 || e.target.closest('input')))) return;
+  swipe = { wrap, id: e.pointerId, x0: e.clientX, y0: e.clientY, base: wrap.classList.contains('open') ? -SWIPE_W : 0, on: false };
+});
+document.addEventListener('pointermove', e => {
+  if (!swipe || e.pointerId !== swipe.id) return;
+  const dx = e.clientX - swipe.x0, dy = e.clientY - swipe.y0;
+  if (!swipe.on) {
+    if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { swipe = null; return; } // é rolagem
+    if (Math.abs(dx) < 10) return;
+    swipe.on = true; swipe.wrap.classList.add('swiping');
+    try { swipe.wrap.querySelector('.setrow').setPointerCapture(e.pointerId); } catch (err) { /* ignorado */ }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+  swipeSet(swipe.wrap, Math.max(-SWIPE_W * 1.25, Math.min(0, swipe.base + dx)), false);
+});
+function endSwipe(e) {
+  if (!swipe || e.pointerId !== swipe.id) return;
+  const s = swipe; swipe = null;
+  if (!s.on) { if (s.base) closeSwipe(); return; }
+  suppressClickUntil = Date.now() + 350;
+  s.wrap.classList.remove('swiping');
+  const cur = new DOMMatrix(getComputedStyle(s.wrap.querySelector('.setrow')).transform).m41;
+  const open = cur < -SWIPE_W / 2;
+  swipeSet(s.wrap, open ? -SWIPE_W : 0, true);
+  openSwipe = open ? s.wrap : null;
+}
+document.addEventListener('pointerup', endSwipe);
+document.addEventListener('pointercancel', endSwipe);
+
+function scrollParentOf(el) {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+  }
+  return document.scrollingElement;
+}
+function dragMove() {
+  const d = dragEx; if (!d || !d.on) return;
+  const { card, parent } = d;
+  card.style.transform = 'none';
+  let top = card.getBoundingClientRect().top;
+  const cy = d.y;
+  // troca de lugar com o vizinho quando o dedo passa do meio dele
+  for (const sib of [...parent.querySelectorAll(':scope > .excard')]) {
+    if (sib === card) continue;
+    const r = sib.getBoundingClientRect(), mid = r.top + r.height / 2;
+    const after = card.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING;
+    if (after && cy > mid) { parent.insertBefore(card, sib.nextSibling); top = card.getBoundingClientRect().top; }
+    else if (!after && cy < mid) { parent.insertBefore(card, sib); top = card.getBoundingClientRect().top; }
+  }
+  card.style.transform = `translateY(${d.y - d.grab - top}px) scale(1.02)`;
+}
+function dragLoop() {
+  const d = dragEx; if (!d || !d.on) return;
+  const sc = d.scroller, vh = sc === document.scrollingElement ? innerHeight : sc.getBoundingClientRect().bottom;
+  const vt = sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top;
+  let v = 0;
+  if (d.y < vt + 90) v = -Math.min(14, (vt + 90 - d.y) / 5);
+  else if (d.y > vh - 90) v = Math.min(14, (d.y - (vh - 90)) / 5);
+  if (v) { sc.scrollTop += v; dragMove(); }
+  d.raf = requestAnimationFrame(dragLoop);
+}
+function endDrag(commit) {
+  const d = dragEx; if (!d) return;
+  dragEx = null;
+  clearTimeout(d.timer); cancelAnimationFrame(d.raf);
+  if (!d.on) return;
+  suppressClickUntil = Date.now() + 400;
+  d.card.classList.remove('dragging'); d.card.style.transform = '';
+  document.body.classList.remove('dragging-ex');
+  const order = [...d.parent.querySelectorAll(':scope > .excard')].map(c => +c.dataset.e);
+  const changed = order.some((v, i) => v !== i);
+  if (commit && changed) {
+    const o = scopeObj(d.scope);
+    o.exercises = order.map(i => o.exercises[i]);
+    if (d.scope === 'active') { save(); render(); } else rerenderTopModal();
+  } else if (changed) { if (d.scope === 'active') render(); else rerenderTopModal(); }
+}
+document.addEventListener('pointerdown', e => {
+  const head = e.target.closest('.excard-head');
+  if (!head || e.target.closest('.icon-btn') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const card = head.closest('.excard');
+  if (!card || card.parentElement.querySelectorAll(':scope > .excard').length < 2) return;
+  const d = dragEx = { card, parent: card.parentElement, scope: card.dataset.scope, id: e.pointerId, x0: e.clientX, y0: e.clientY, y: e.clientY, on: false };
+  d.timer = setTimeout(() => {
+    d.on = true; d.grab = d.y0 - card.getBoundingClientRect().top; d.scroller = scrollParentOf(card);
+    card.classList.add('dragging'); document.body.classList.add('dragging-ex');
+    if (navigator.vibrate) try { navigator.vibrate(18); } catch (err) { /* ignorado */ }
+    closeSwipe(); dragMove(); d.raf = requestAnimationFrame(dragLoop);
+  }, 380);
+});
+document.addEventListener('pointermove', e => {
+  const d = dragEx; if (!d || e.pointerId !== d.id) return;
+  d.y = e.clientY;
+  if (!d.on) { if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 9) { clearTimeout(d.timer); dragEx = null; } return; }
+  dragMove();
+});
+document.addEventListener('pointerup', e => { if (dragEx && e.pointerId === dragEx.id) endDrag(true); });
+document.addEventListener('pointercancel', e => { if (dragEx && e.pointerId === dragEx.id) endDrag(true); });
+document.addEventListener('touchmove', e => { if (dragEx && dragEx.on) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (dragEx && (dragEx.on || e.target.closest('.excard-head'))) e.preventDefault(); });
+// depois de arrastar ou deslizar, o "clique" que o navegador dispara não deve abrir nada
+document.addEventListener('click', e => { if (Date.now() < suppressClickUntil) { e.stopPropagation(); e.preventDefault(); } }, true);
 
 // relógio do treino
 setInterval(() => {
