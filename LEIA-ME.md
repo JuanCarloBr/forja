@@ -13,7 +13,12 @@ Os dados ficam salvos só no aparelho (use **Perfil → Configurações → Expo
 - **Rotinas:** criar, editar, duplicar, começar; modelos prontos (Push/Pull/Legs, Superior/Inferior, Corpo inteiro); ao concluir, atualizar a rotina com os novos pesos.
 - **Biblioteca com 60 exercícios** em português, busca, filtro por músculo e exercícios personalizados.
 - **Progresso:** gráfico das últimas 12 semanas (duração, volume, séries, treinos), calendário do mês, séries por grupo muscular, sequência de semanas, histórico e gráfico de 1RM de cada exercício, peso corporal.
+- **Meus exercícios:** crie, edite e apague exercícios próprios, inclusive no meio do treino.
+- **Editar treinos salvos:** nome, data, duração, séries; os recordes são recalculados.
+- **Conforto:** tela ligada durante o treino, botão voltar do celular fecha janelas, Enter pula do peso para as reps e marca a série.
+- **Segurança dos dados:** lembrete de backup a cada 2 semanas, desfazer a última importação ou limpeza, pedido de armazenamento permanente.
 - kg ou lb, backup/restauração em JSON, dados de exemplo para testar.
+- Abre na hora mesmo com internet ruim: usa a cópia salva e busca atualizações em segundo plano (a versão nova aparece na abertura seguinte).
 
 ## Rodar no computador
 

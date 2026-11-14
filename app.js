@@ -15,7 +15,7 @@ const fmtNum = (v, d = 1) => Number(v || 0).toLocaleString('pt-BR', { maximumFra
 const STORE_KEY = 'forja.v1';
 function defaultState() {
   return {
-    settings: { unit: 'kg', rest: 90, bar: 20, sound: true },
+    settings: { unit: 'kg', rest: 90, bar: 20, sound: true, keepAwake: true },
     customExercises: [], routines: [], workouts: [], body: [], active: null
   };
 }
@@ -34,7 +34,22 @@ function load() {
 let S = load();
 let saveTimer = null;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 200); }
-function flush() { clearTimeout(saveTimer); try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { /* sem espaço ou bloqueado */ } }
+let saveWarned = false;
+function flush() {
+  clearTimeout(saveTimer);
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); saveWarned = false; }
+  catch (e) {
+    if (!saveWarned && typeof toast === 'function') { saveWarned = true; toast('Não foi possível salvar. Verifique o espaço do aparelho e faça um backup.'); }
+  }
+}
+// Guarda uma cópia antes de importar ou apagar tudo, para poder desfazer.
+function snapshotPrev() { try { localStorage.setItem(STORE_KEY + '.prev', JSON.stringify(S)); } catch (e) { /* ignorado */ } }
+function hasPrev() { try { return !!localStorage.getItem(STORE_KEY + '.prev'); } catch (e) { return false; } }
+function applyState(d) {
+  S = Object.assign(defaultState(), d);
+  S.settings = Object.assign(defaultState().settings, d.settings || {});
+  invalidateEx(); recomputeAllPRs(); save();
+}
 addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
 
@@ -112,14 +127,47 @@ function wPrCount(w) {
 }
 function sortedWorkouts() { return S.workouts.slice().sort((a, b) => b.start - a.start); }
 
+// Índice exercício -> treinos (mais recente primeiro). Refeito a cada render; evita varrer tudo a cada série.
+let histCache = null;
 function exHistory(exId) {
-  const out = [];
-  for (const w of sortedWorkouts()) {
-    const sets = [];
-    for (const e of w.exercises) if (e.exId === exId) sets.push(...e.sets.filter(s => s.done));
-    if (sets.length) out.push({ w, sets });
+  if (!histCache) {
+    histCache = {};
+    for (const w of sortedWorkouts()) {
+      const per = {};
+      for (const e of w.exercises) {
+        const done = e.sets.filter(s => s.done);
+        if (done.length) (per[e.exId] = per[e.exId] || []).push(...done);
+      }
+      for (const id in per) (histCache[id] = histCache[id] || []).push({ w, sets: per[id] });
+    }
   }
-  return out;
+  return histCache[exId] || [];
+}
+// Refaz as marcações de recorde de todo o histórico, em ordem de data (após editar, apagar ou importar).
+function recomputeAllPRs() {
+  const rec = {};
+  for (const w of S.workouts.slice().sort((a, b) => a.start - b.start)) {
+    const had = {};
+    for (const e of w.exercises) if (!(e.exId in had)) had[e.exId] = !!rec[e.exId];
+    for (const e of w.exercises) {
+      const r = rec[e.exId] = rec[e.exId] || { maxW: 0, best1rm: 0, bestVol: 0, maxReps: 0 };
+      const isReps = EX(e.exId).kind === 'reps';
+      for (const s of e.sets) {
+        s.pr = [];
+        if (!s.done || !working(s) || !s.r) continue;
+        const wt = s.w || 0, one = e1rm(wt, s.r), vol = wt * s.r;
+        if (had[e.exId]) {
+          if (wt > r.maxW && wt > 0) s.pr.push('Maior peso');
+          if (one > r.best1rm && wt > 0) s.pr.push('Melhor 1RM estimado');
+          if (vol > r.bestVol && wt > 0) s.pr.push('Maior volume na série');
+          if (isReps && !wt && s.r > r.maxReps) s.pr.push('Mais repetições');
+        }
+        r.maxW = Math.max(r.maxW, wt); r.best1rm = Math.max(r.best1rm, one);
+        r.bestVol = Math.max(r.bestVol, vol); r.maxReps = Math.max(r.maxReps, s.r);
+      }
+    }
+  }
+  histCache = null;
 }
 function recordsFrom(sets) {
   const r = { maxW: 0, best1rm: 0, bestVol: 0, maxReps: 0 };
@@ -170,7 +218,7 @@ const ICON = {
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 
 function render() {
-  exCache = null;
+  exCache = null; histCache = null;
   const inWorkout = !!(S.active && ui.workoutOpen);
   document.body.classList.toggle('in-workout', inWorkout);
   const view = $('#view');
@@ -180,6 +228,7 @@ function render() {
   renderRestBar();
   renderModals();
   document.querySelectorAll('textarea.note').forEach(autoGrow);
+  syncWakeLock();
 }
 
 function renderTabs() {
@@ -234,7 +283,7 @@ function viewHome() {
   const ws = sortedWorkouts();
   const st = weekStats();
   const streak = streakWeeks();
-  const head = `<header class="head"><h1>Forja</h1></header>`;
+  const head = `<header class="head"><h1>Forja</h1>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
   if (!ws.length) {
     return head + `<section class="empty card">
       <div class="empty-ic">${icon('train')}</div>
@@ -244,7 +293,7 @@ function viewHome() {
       <button class="btn ghost" data-a="seedDemo">Carregar dados de exemplo</button>
     </section>`;
   }
-  return head + `
+  return head + backupReminder() + `
     <section class="grid3">
       <div class="card stat"><small>Treinos na semana</small><b>${st.count}</b></div>
       <div class="card stat"><small>Sequência</small><b>${streak} sem.</b></div>
@@ -252,6 +301,14 @@ function viewHome() {
     </section>
     <h2 class="sec">Histórico</h2>
     <section class="stack">${ws.map(workoutCard).join('')}</section>`;
+}
+
+function backupReminder() {
+  const now = Date.now();
+  if (S.workouts.length < 5 || now - (S.lastBackup || 0) < 14 * DAY || now < (S.backupSnooze || 0)) return '';
+  return `<section class="card remind"><b>Hora de fazer um backup</b>
+    <p class="muted">${S.lastBackup ? 'Seu último backup tem mais de 2 semanas.' : 'Você ainda não fez nenhum backup dos seus treinos.'} Guarde o arquivo no Drive ou no e-mail.</p>
+    <div class="row gap"><button class="btn primary grow" data-a="exportData">Fazer backup</button><button class="btn" data-a="backupLater">Depois</button></div></section>`;
 }
 
 /* ---------- Treinar ---------- */
@@ -773,6 +830,26 @@ function routineEditorView() {
   </div>`;
 }
 
+/* ---------- editar treino salvo ---------- */
+function toLocalInput(t) { const d = new Date(t - new Date(t).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); }
+function openWorkoutEditor(w) {
+  ui.draft = clone(w);
+  ui.draft._dur = Math.max(1, Math.round((w.end - w.start) / 60000));
+  openModal(workoutEditorView);
+}
+function workoutEditorView() {
+  const d = ui.draft;
+  return sheetHead('Editar treino', `<button class="btn primary small" data-a="saveWorkoutEdit">Salvar</button>`) + `<div class="pad">
+    <input class="title-input" placeholder="Nome do treino" value="${esc(d.name)}" data-f="rname">
+    <div class="grid2 fields">
+      <label class="field"><span>Data e hora</span><input class="input" type="datetime-local" value="${toLocalInput(d.start)}" data-f="wstart"></label>
+      <label class="field"><span>Duração (min)</span><input class="input" inputmode="numeric" value="${d._dur}" data-f="wdur"></label>
+    </div>
+    ${d.exercises.map((e, i) => exerciseCard(e, i, 'draft')).join('')}
+    <button class="btn primary block" data-a="addExercises" data-scope="draft">${icon('plus')} Adicionar exercícios</button>
+  </div>`;
+}
+
 /* ---------- configurações ---------- */
 function settingsView() {
   const st = S.settings;
@@ -782,6 +859,7 @@ function settingsView() {
     <div class="trow"><span class="grow">Descanso padrão</span><button class="btn small" data-a="defaultRest">${fmtRest(st.rest)}</button></div>
     <div class="trow"><span class="grow">Peso da barra (${unit()})</span><input class="cell" inputmode="decimal" value="${inW(st.bar)}" data-f="bar"></div>
     <div class="trow"><span class="grow">Som ao fim do descanso</span><button class="toggle ${st.sound ? 'on' : ''}" data-a="toggleSound" aria-label="Som"><i></i></button></div>
+    <div class="trow"><span class="grow">Manter a tela ligada no treino</span><button class="toggle ${st.keepAwake ? 'on' : ''}" data-a="toggleAwake" aria-label="Manter a tela ligada"><i></i></button></div>
     <div class="trow"><span class="grow">Armazenamento dos dados<small class="muted">Protege contra limpeza automática do navegador</small></span>
       ${ui.persisted === true ? persistLabel() : `<button class="btn small" data-a="persist">${ui.persisted === 'unsupported' ? 'Não suportado' : 'Pedir de novo'}</button>`}</div>
     ${ui.persisted === false ? '<p class="muted small">O navegador ainda não autorizou. Instale o app na tela inicial e use por alguns dias; ele tenta de novo sozinho.</p>' : ''}
@@ -789,6 +867,8 @@ function settingsView() {
     <button class="btn block" data-a="exportData">Exportar backup (JSON)</button>
     <label class="btn block">Importar backup<input type="file" accept="application/json,.json" hidden data-f="import"></label>
     <button class="btn block" data-a="seedDemo">Carregar dados de exemplo</button>
+    ${hasPrev() ? '<button class="btn block" data-a="restorePrev">Desfazer última importação ou limpeza</button>' : ''}
+    <p class="muted small">${S.lastBackup ? 'Último backup: ' + fmtDate(S.lastBackup, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Nenhum backup feito ainda.'}</p>
     <button class="btn danger-ghost block" data-a="wipe">Apagar todos os dados</button>
     <p class="muted small">Seus dados ficam só neste aparelho. Faça backup de vez em quando.</p>
   </div>`;
@@ -831,19 +911,8 @@ function seedDemo() {
           .map(s => ({ ...s, done: true })) })) });
     k++;
   }
-  // recalcula recordes em ordem
-  const saved = S.workouts; S.workouts = [];
-  for (const w of ws.sort((a, b) => a.start - b.start)) {
-    for (const e of w.exercises) {
-      const prev = []; for (const h of exHistory(e.exId)) prev.push(...h.sets);
-      if (prev.length) {
-        const r = recordsFrom(prev);
-        for (const s of e.sets) if (working(s) && s.w > r.maxW) { s.pr = ['Maior peso']; r.maxW = s.w; }
-      }
-    }
-    S.workouts.push(w);
-  }
-  S.workouts = saved.concat(S.workouts);
+  S.workouts = S.workouts.concat(ws);
+  recomputeAllPRs();
   if (!S.body.length) for (let i = 0; i < 8; i++) S.body.push({ t: startOfDay(now - (49 - i * 7) * DAY), kg: round1(82 - i * 0.4 + (i % 2) * 0.3) });
   if (!S.routines.length) addTemplate(0), addTemplate(1), addTemplate(2);
   save(); closeAllModals(); ui.tab = 'home'; render();
@@ -887,6 +956,34 @@ const A = {
     else { d.id = uid(); S.routines.push(d); }
     ui.draft = null; save(); closeModal(); render(); toast('Rotina salva');
   },
+  saveWorkoutEdit() {
+    const d = ui.draft;
+    const out = clone(d);
+    out.name = (out.name || '').trim() || 'Treino';
+    out.exercises = out.exercises
+      .map(e => ({ ...e, sets: e.sets.filter(s => s.r > 0).map(s => ({ ...s, done: true })) }))
+      .filter(e => e.sets.length);
+    if (!out.exercises.length) { toast('O treino precisa de pelo menos uma série com repetições'); return; }
+    if (out.start > Date.now()) { toast('A data não pode ser no futuro'); return; }
+    out.end = out.start + Math.max(1, out._dur || 1) * 60000;
+    delete out._dur;
+    const i = S.workouts.findIndex(x => x.id === out.id);
+    if (i < 0) return;
+    S.workouts[i] = out;
+    ui.draft = null; recomputeAllPRs(); save(); closeAllModals(); render(); toast('Treino atualizado');
+  },
+  backupLater() { S.backupSnooze = Date.now() + 7 * DAY; save(); render(); },
+  toggleAwake() { S.settings.keepAwake = !S.settings.keepAwake; save(); syncWakeLock(); rerenderTopModal(); },
+  restorePrev() {
+    confirmBox('Desfazer?', 'Os dados voltam a ser como eram antes da última importação ou limpeza.', 'Desfazer', () => {
+      try {
+        const prev = JSON.parse(localStorage.getItem(STORE_KEY + '.prev'));
+        if (!prev || !Array.isArray(prev.workouts)) throw new Error('vazio');
+        localStorage.removeItem(STORE_KEY + '.prev');
+        stopRest(); ui.workoutOpen = false; applyState(prev); closeAllModals(); render(); toast('Dados restaurados');
+      } catch (e) { toast('Não há nada para desfazer'); }
+    }, false);
+  },
   addExercises(el) {
     const scope = el.dataset.scope;
     openPicker(ids => {
@@ -912,9 +1009,10 @@ const A = {
   workoutMenu(el) {
     const w = S.workouts.find(x => x.id === el.dataset.id);
     menu(w.name, [
+      { label: 'Editar treino', fn: () => { closeAllModals(); openWorkoutEditor(w); } },
       { label: 'Repetir este treino', fn: () => { closeAllModals(); startWorkout(w.name, w.exercises.map(e => ({ exId: e.exId, notes: e.notes, rest: e.rest, sets: e.sets.map(s => newSet(s.type, s.w, s.r)) }))); } },
       { label: 'Salvar como rotina', fn: () => { S.routines.push({ id: uid(), name: w.name, exercises: w.exercises.map(e => ({ exId: e.exId, rest: e.rest, notes: e.notes || '', sets: e.sets.map(s => ({ type: s.type, w: s.w, r: s.r })) })) }); save(); closeAllModals(); render(); toast('Rotina criada'); } },
-      { label: 'Apagar treino', danger: true, fn: () => { closeModal(); confirmBox('Apagar treino?', 'Isso não pode ser desfeito.', 'Apagar', () => { S.workouts = S.workouts.filter(x => x !== w); save(); closeAllModals(); render(); }); } }
+      { label: 'Apagar treino', danger: true, fn: () => { closeModal(); confirmBox('Apagar treino?', 'Isso não pode ser desfeito.', 'Apagar', () => { S.workouts = S.workouts.filter(x => x !== w); recomputeAllPRs(); save(); closeAllModals(); render(); }); } }
     ]);
   },
   newExercise() { openExerciseEditor({}); },
@@ -1007,7 +1105,12 @@ const A = {
     ];
     if (ei > 0) items.push({ label: 'Mover para cima', fn: () => { closeModal(); o.exercises.splice(ei - 1, 0, o.exercises.splice(ei, 1)[0]); after(); } });
     if (ei < o.exercises.length - 1) items.push({ label: 'Mover para baixo', fn: () => { closeModal(); o.exercises.splice(ei + 1, 0, o.exercises.splice(ei, 1)[0]); after(); } });
-    items.push({ label: 'Remover exercício', danger: true, fn: () => { closeModal(); o.exercises.splice(ei, 1); after(); } });
+    items.push({ label: 'Remover exercício', danger: true, fn: () => {
+      closeModal();
+      const remove = () => { o.exercises.splice(ei, 1); after(); };
+      if (scope === 'active' && e.sets.some(x => x.done)) confirmBox('Remover exercício?', 'As séries já marcadas deste exercício serão perdidas.', 'Remover', remove);
+      else remove();
+    } });
     menu(EX(e.exId).name, items);
   },
   restMenu(el) {
@@ -1060,10 +1163,14 @@ const A = {
     a.download = `forja-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    S.lastBackup = Date.now(); save();
+    if (ui.modals.length) rerenderTopModal(); else render();
   },
   wipe() {
     confirmBox('Apagar todos os dados?', 'Treinos, rotinas, medidas e exercícios personalizados serão apagados deste aparelho.', 'Apagar tudo', () => {
+      snapshotPrev();
       S = defaultState(); invalidateEx(); stopRest(); ui.workoutOpen = false; save(); closeAllModals(); render();
+      toast('Dados apagados. Dá para desfazer em Configurações.');
     });
   },
   async persist() {
@@ -1118,6 +1225,8 @@ document.addEventListener('input', e => {
     case 'note': scopeObj(scope).exercises[+el.dataset.e].notes = el.value; if (scope === 'active') save(); autoGrow(el); break;
     case 'wname': S.active.name = el.value; save(); break;
     case 'rname': ui.draft.name = el.value; break;
+    case 'wstart': { const t = new Date(el.value).getTime(); if (!isNaN(t)) ui.draft.start = t; break; }
+    case 'wdur': { const v = num(el.value); ui.draft._dur = v && v > 0 ? Math.round(v) : 1; break; }
     case 'exq': ui.exQ = el.value; $('#exlist').innerHTML = exListHtml(); break;
     case 'pickq': ui.pick.q = el.value; $('#picklist').innerHTML = pickRows(); break;
     case 'nxname': ui.newEx.name = el.value; break;
@@ -1135,9 +1244,9 @@ document.addEventListener('change', e => {
       try {
         const d = JSON.parse(rd.result);
         if (!d || !Array.isArray(d.workouts)) throw new Error('formato');
-        S = Object.assign(defaultState(), d);
-        S.settings = Object.assign(defaultState().settings, d.settings || {});
-        invalidateEx(); save(); closeAllModals(); render(); toast('Backup importado');
+        snapshotPrev();
+        stopRest(); ui.workoutOpen = false;
+        applyState(d); closeAllModals(); render(); toast('Backup importado');
       } catch (err) { toast('Arquivo inválido'); }
     };
     rd.readAsText(el.files[0]);
@@ -1147,6 +1256,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && ui.modals.length) closeModal();
   if (e.key === 'Enter' && e.target.id === 'bodyw') A.addBody();
   if (e.key === 'Enter' && e.target.id === 'platein') A.plateCalc();
+  if (e.key === 'Enter' && e.target.classList.contains('cell') && e.target.dataset.f) {
+    const row = e.target.closest('.setrow');
+    if (!row) return;
+    e.preventDefault();
+    if (e.target.dataset.f === 'w') row.querySelector('[data-f="r"]').focus();
+    else { const chk = row.querySelector('.chk:not(.on)'); if (chk) chk.click(); else e.target.blur(); }
+  }
 });
 document.addEventListener('focusin', e => { if (e.target.classList.contains('cell')) e.target.select(); });
 function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
@@ -1176,6 +1292,34 @@ function persistLabel() {
   return '<span class="muted">Verificando…</span>';
 }
 requestPersist();
+
+/* ---------- manter a tela ligada durante o treino ---------- */
+let wakeLock = null;
+async function syncWakeLock() {
+  try {
+    const want = !!S.active && S.settings.keepAwake && !document.hidden && 'wakeLock' in navigator;
+    if (want && !wakeLock) {
+      const lock = await navigator.wakeLock.request('screen');
+      wakeLock = lock;
+      lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+    } else if (!want && wakeLock) { const l = wakeLock; wakeLock = null; await l.release(); }
+  } catch (e) { /* sem suporte ou negado (ex.: bateria fraca) */ }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncWakeLock(); });
+
+/* ---------- botão voltar do celular ---------- */
+// Voltar fecha a janela aberta, minimiza o treino ou volta ao Início, em vez de sair do app.
+try {
+  history.replaceState({ forja: 'base' }, '');
+  history.pushState({ forja: 'guard' }, '');
+  addEventListener('popstate', () => {
+    if (ui.modals.length) closeModal();
+    else if (S.active && ui.workoutOpen) { ui.workoutOpen = false; render(); }
+    else if (ui.tab !== 'home') { ui.tab = 'home'; render(); scrollTo(0, 0); }
+    else { history.back(); return; }
+    history.pushState({ forja: 'guard' }, '');
+  });
+} catch (e) { /* histórico indisponível */ }
 
 /* ---------- início ---------- */
 if (S.active) ui.workoutOpen = true;

@@ -242,11 +242,22 @@ details summary { cursor: pointer; padding: 10px 0 4px; font-size: 13px; }
 .toggle.on i { transform: translateX(18px); background: #fff; }
 
 /* aviso */
-#toast-root { position: fixed; left: 0; right: 0; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 100; display: flex; justify-content: center; pointer-events: none; padding: 0 16px; }
+#toast-root { position: fixed; left: 0; right: 0; top: calc(62px + env(safe-area-inset-top, 0px)); z-index: 100; display: flex; justify-content: center; pointer-events: none; padding: 0 16px; }
 .toast { background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: up .2s; max-width: 100%; }
 
 @media (max-width: 380px) {
   .sethead, .setrow { grid-template-columns: 34px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .9fr) 36px; gap: 6px; }
   .stat b { font-size: 16px; }
   .hbar { grid-template-columns: 76px 1fr 24px; }
+}
+
+/* lembrete e editor */
+.remind { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.remind p { margin: 4px 0 10px; }
+.grid2.fields { margin: 0 0 12px; }
+.grid2.fields .input { min-width: 0; }
+@media (max-width: 380px) { .grid2.fields { grid-template-columns: 1fr; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
