@@ -359,8 +359,10 @@ function viewTrain() {
 }
 
 /* ---------- Exercícios ---------- */
+function hasImg(ex) { return !ex.custom && window.EX_IMG.has(ex.id); }
 function avatar(ex) {
   const c = window.MUSCLE_COLORS[ex.muscle] || '#64748b';
+  if (hasImg(ex)) return `<span class="avatar photo" style="--c:${c}"><img src="img/ex/${ex.id}-0.jpg" alt="" loading="lazy" decoding="async"></span>`;
   const ini = ex.name.replace(/\(.*?\)/g, ' ').replace(/[^\p{L}\s]/gu, '').split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || (ex.name.match(/[\p{L}\d]/u) || ['?'])[0].toUpperCase();
   return `<span class="avatar" style="--c:${c}">${esc(ini)}</span>`;
 }
@@ -797,6 +799,7 @@ function exDetailView(id) {
   const pts = hist.slice().reverse().map(h => ({ x: h.w.start, y: round1(toDisp(Math.max(...h.sets.filter(working).map(s => e1rm(s.w || 0, s.r || 0)), 0))) })).filter(p => p.y > 0);
   const isReps = ex.kind === 'reps';
   return sheetHead(esc(ex.name)) + `<div class="pad">
+    ${hasImg(ex) ? `<div class="exdemo" aria-label="Demonstração do exercício"><img src="img/ex/${ex.id}-0.jpg" alt="Posição inicial"><img src="img/ex/${ex.id}-1.jpg" alt="Posição final"></div>` : ''}
     <p class="muted">${esc(ex.muscle)} · ${esc(ex.equipment)}</p>
     <div class="grid2">
       ${isReps ? `<div class="card stat"><small>Mais repetições</small><b>${rec.maxReps || '—'}</b></div>` : ''}

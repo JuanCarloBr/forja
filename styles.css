@@ -391,3 +391,13 @@ body:not(.in-workout):has(#activebar:not([hidden])) #toast-root { bottom: calc(v
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Fotos dos exercícios */
+.avatar.photo { width: 48px; height: 48px; overflow: hidden; padding: 0; background: #fff; }
+.avatar.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.exdemo { position: relative; aspect-ratio: 3 / 2; border-radius: 18px; overflow: hidden; margin: 0 0 14px; background: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent-text, #b79cff) 30%, transparent); }
+.exdemo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.exdemo img + img { animation: exdemo 2.4s steps(1, end) infinite; }
+@keyframes exdemo { 0% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .exdemo img + img { animation: none; opacity: 0; } }
