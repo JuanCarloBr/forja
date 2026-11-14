@@ -284,7 +284,7 @@ function viewHome() {
   const ws = sortedWorkouts();
   const st = weekStats();
   const streak = streakWeeks();
-  const head = `<header class="head"><div class="brand"><span class="logo">${icon('train')}</span><div><h1>Fit Training</h1><small>${greeting()}</small></div></div>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
+  const head = `<header class="head"><div class="brand"><span class="logo"><svg class="logo-svg" viewBox="0 0 512 512" aria-hidden="true"><g fill="#fff" stroke="#000" stroke-width="10" stroke-linejoin="round"><rect x="96" y="176" width="48" height="160" rx="14"/><rect x="368" y="176" width="48" height="160" rx="14"/><rect x="148" y="146" width="56" height="220" rx="16"/><rect x="308" y="146" width="56" height="220" rx="16"/><rect x="200" y="236" width="112" height="40" rx="8"/></g></svg></span><div><h1>Fit Training</h1><small>${greeting()}</small></div></div>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
   if (!ws.length) {
     return head + `<section class="empty card">
       <div class="empty-ic">${icon('train')}</div>
