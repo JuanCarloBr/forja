@@ -11,7 +11,7 @@ Os dados ficam salvos só no aparelho (use **Perfil → Configurações → Expo
 - **Aviso de recorde na hora:** maior peso, melhor 1RM estimado, maior volume na série, mais repetições.
 - **Aquecimento automático** (40/60/80% da série de trabalho) e **calculadora de anilhas**.
 - **Rotinas:** criar, editar, duplicar, começar; modelos prontos (Push/Pull/Legs, Superior/Inferior, Corpo inteiro); ao concluir, atualizar a rotina com os novos pesos.
-- **Biblioteca com 60 exercícios** em português, busca, filtro por músculo e exercícios personalizados.
+- **Biblioteca com 161 exercícios** em português, busca, filtro por músculo e exercícios personalizados.
 - **Progresso:** gráfico das últimas 12 semanas (duração, volume, séries, treinos), calendário do mês, séries por grupo muscular, sequência de semanas, histórico e gráfico de 1RM de cada exercício, peso corporal.
 - **Meus exercícios:** crie, edite e apague exercícios próprios, inclusive no meio do treino.
 - **Editar treinos salvos:** nome, data, duração, séries; os recordes são recalculados.
