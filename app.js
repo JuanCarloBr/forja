@@ -40,7 +40,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) flush
 
 const ui = {
   tab: 'home', workoutOpen: false, modals: [], draft: null,
-  exQ: '', exMuscle: '', pick: null, chartMetric: 'duracao', calOffset: 0
+  exQ: '', exMuscle: '', exView: 'todos', pick: null, chartMetric: 'duracao', calOffset: 0
 };
 
 /* ---------- exercícios ---------- */
@@ -164,6 +164,7 @@ const ICON = {
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   left: '<path d="m15 18-6-6 6-6"/>', right: '<path d="m9 18 6-6-6-6"/>'
 };
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
@@ -285,7 +286,7 @@ function viewTrain() {
 /* ---------- Exercícios ---------- */
 function avatar(ex) {
   const c = window.MUSCLE_COLORS[ex.muscle] || '#64748b';
-  const ini = ex.name.split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || ex.name[0];
+  const ini = ex.name.replace(/\(.*?\)/g, ' ').replace(/[^\p{L}\s]/gu, '').split(/\s+/).filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || (ex.name.match(/[\p{L}\d]/u) || ['?'])[0].toUpperCase();
   return `<span class="avatar" style="--c:${c}">${esc(ini)}</span>`;
 }
 function filterExercises(q, muscle) {
@@ -299,17 +300,53 @@ function muscleChips(sel, action) {
   return `<div class="chips">${['', ...window.MUSCLES].map(m =>
     `<button class="chip ${sel === m ? 'on' : ''}" data-a="${action}" data-m="${esc(m)}">${m || 'Todos'}</button>`).join('')}</div>`;
 }
-function exRows(list) {
-  if (!list.length) return '<p class="muted pad">Nenhum exercício encontrado.</p>';
-  return list.map(e => `<button class="exrow" data-a="exDetail" data-id="${e.id}">${avatar(e)}
-    <span class="grow"><b>${esc(e.name)}</b><small class="muted">${esc(e.muscle)} · ${esc(e.equipment)}${e.custom ? ' · personalizado' : ''}</small></span></button>`).join('');
+function exRows(list, createAction = 'newExercise') {
+  if (!list.length) return `<div class="pad center"><p class="muted">Nenhum exercício encontrado.</p>
+    <button class="btn primary" data-a="${createAction}">${icon('plus')} Criar exercício</button></div>`;
+  return list.map(e => `<div class="exrow-wrap"><button class="exrow" data-a="exDetail" data-id="${e.id}">${avatar(e)}
+    <span class="grow"><b>${esc(e.name)}</b><small class="muted">${esc(e.muscle)} · ${esc(e.equipment)}${e.custom ? ' · <span class="tag">meu</span>' : ''}</small></span></button>
+    ${e.custom && ui.exView === 'meus' ? `<button class="icon-btn" data-a="editExercise" data-id="${e.id}" aria-label="Editar">${icon('edit')}</button>` : ''}</div>`).join('');
+}
+function exListHtml() {
+  if (ui.exView === 'meus') {
+    if (!S.customExercises.length) return `<div class="empty"><div class="empty-ic">${icon('edit')}</div>
+      <h2>Nenhum exercício seu ainda</h2>
+      <p class="muted">Não achou o exercício que você faz? Crie aqui com o nome, o músculo e o equipamento. Ele passa a aparecer nos treinos e rotinas como os outros.</p></div>`;
+    return exRows(filterExercises(ui.exQ, ui.exMuscle).filter(e => e.custom));
+  }
+  return exRows(filterExercises(ui.exQ, ui.exMuscle));
 }
 function viewExercises() {
-  return `<header class="head"><h1>Exercícios</h1>
-      <button class="btn small" data-a="newExercise">${icon('plus')} Personalizado</button></header>
-    <label class="search">${icon('search')}<input type="search" placeholder="Buscar exercício" value="${esc(ui.exQ)}" data-f="exq" autocomplete="off"></label>
-    ${muscleChips(ui.exMuscle, 'exMuscle')}
-    <section class="card list" id="exlist">${exRows(filterExercises(ui.exQ, ui.exMuscle))}</section>`;
+  const mine = S.customExercises.length;
+  return `<header class="head"><h1>Exercícios</h1></header>
+    <div class="seg tabs2">
+      <button class="${ui.exView !== 'meus' ? 'on' : ''}" data-a="exView" data-v="todos">Todos (${allExercises().length})</button>
+      <button class="${ui.exView === 'meus' ? 'on' : ''}" data-a="exView" data-v="meus">Meus exercícios (${mine})</button>
+    </div>
+    ${ui.exView === 'meus' ? `<button class="btn primary block big" data-a="newExercise">${icon('plus')} Criar exercício</button>` : ''}
+    ${ui.exView === 'meus' && !mine ? '' : `<label class="search">${icon('search')}<input type="search" placeholder="Buscar exercício" value="${esc(ui.exQ)}" data-f="exq" autocomplete="off"></label>
+    ${muscleChips(ui.exMuscle, 'exMuscle')}`}
+    <section class="card list" id="exlist">${exListHtml()}</section>
+    ${ui.exView !== 'meus' ? `<p class="muted center small">Não achou? <button class="linkbtn" data-a="newExercise">Crie seu próprio exercício</button></p>` : ''}`;
+}
+
+function openExerciseEditor({ ex, name = '', onSaved } = {}) {
+  ui.newEx = ex
+    ? { id: ex.id, name: ex.name, muscle: ex.muscle, equipment: ex.equipment, kind: ex.kind }
+    : { id: null, name, muscle: window.MUSCLES[0], equipment: window.EQUIPMENT[0], kind: 'weight', onSaved };
+  openModal(() => {
+    const n = ui.newEx;
+    return sheetHead(n.id ? 'Editar exercício' : 'Criar exercício', '<button class="btn primary small" data-a="saveExercise">Salvar</button>') + `<div class="pad stack">
+      <label class="field"><span>Nome</span><input class="input" placeholder="Ex.: Remada cavalinho" value="${esc(n.name)}" data-f="nxname" maxlength="60" autocomplete="off"></label>
+      <label class="field"><span>Grupo muscular principal</span><select class="input" data-f="nxmuscle">${window.MUSCLES.map(m => `<option ${m === n.muscle ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
+      <label class="field"><span>Equipamento</span><select class="input" data-f="nxequip">${window.EQUIPMENT.map(m => `<option ${m === n.equipment ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
+      <label class="field"><span>Como registrar</span><select class="input" data-f="nxkind">
+        <option value="weight" ${n.kind === 'weight' ? 'selected' : ''}>Peso e repetições (ex.: supino)</option>
+        <option value="reps" ${n.kind === 'reps' ? 'selected' : ''}>Peso corporal, só repetições (ex.: flexão)</option></select></label>
+      ${n.id ? `<p class="muted small">As mudanças valem também para os treinos que você já fez com ele.</p>
+        <button class="btn danger-ghost block" data-a="delExercise" data-id="${n.id}">Apagar exercício</button>` : ''}
+    </div>`;
+  });
 }
 
 /* ---------- Perfil ---------- */
@@ -665,8 +702,10 @@ function pickerView() {
 function pickRows() {
   const p = ui.pick;
   const list = filterExercises(p.q, p.m);
-  if (!list.length) return '<p class="muted pad">Nenhum exercício encontrado.</p>';
-  return list.map(e => {
+  const create = `<button class="exrow create" data-a="pickCreate"><span class="avatar plus">${icon('plus')}</span>
+    <span class="grow"><b>${p.q.trim() ? `Criar “${esc(p.q.trim())}”` : 'Criar exercício'}</b><small class="muted">Não achou o seu? Crie e ele já entra no treino</small></span></button>`;
+  if (!list.length) return create;
+  return create + list.map(e => {
     const i = p.sel.indexOf(e.id);
     return `<button class="exrow ${i >= 0 ? 'sel' : ''}" data-a="pickToggle" data-id="${e.id}">${avatar(e)}
       <span class="grow"><b>${esc(e.name)}</b><small class="muted">${esc(e.muscle)} · ${esc(e.equipment)}</small></span>
@@ -695,7 +734,7 @@ function exDetailView(id) {
     ${hist.length ? hist.slice(0, 20).map(h => `<div class="card hist"><b>${esc(h.w.name)}</b> <small class="muted">${fmtDate(h.w.start)}</small>
       <ol>${h.sets.map(s => `<li class="${s.type === 'W' ? 'muted' : ''}">${s.type === 'W' ? 'Aquec.: ' : ''}${isReps && !s.w ? '' : fmtW(s.w || 0) + ' ' + unit() + ' × '}${s.r || 0}${isReps && !s.w ? ' reps' : ''}${s.pr && s.pr.length ? ' 🏆' : ''}</li>`).join('')}</ol></div>`).join('')
       : '<p class="muted">Você ainda não fez este exercício.</p>'}
-    ${ex.custom ? `<button class="btn danger-ghost block" data-a="delExercise" data-id="${ex.id}">Apagar exercício personalizado</button>` : ''}
+    ${ex.custom ? `<button class="btn block" data-a="editExercise" data-id="${ex.id}">${icon('edit')} Editar exercício</button>` : ''}
   </div>`;
 }
 
@@ -878,30 +917,47 @@ const A = {
       { label: 'Apagar treino', danger: true, fn: () => { closeModal(); confirmBox('Apagar treino?', 'Isso não pode ser desfeito.', 'Apagar', () => { S.workouts = S.workouts.filter(x => x !== w); save(); closeAllModals(); render(); }); } }
     ]);
   },
-  newExercise() {
-    ui.newEx = { name: '', muscle: window.MUSCLES[0], equipment: window.EQUIPMENT[0], kind: 'weight' };
-    openModal(() => {
-      const n = ui.newEx;
-      return sheetHead('Exercício personalizado', '<button class="btn primary small" data-a="saveExercise">Salvar</button>') + `<div class="pad stack">
-        <input class="input" placeholder="Nome do exercício" value="${esc(n.name)}" data-f="nxname">
-        <label class="field"><span>Grupo muscular</span><select class="input" data-f="nxmuscle">${window.MUSCLES.map(m => `<option ${m === n.muscle ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
-        <label class="field"><span>Equipamento</span><select class="input" data-f="nxequip">${window.EQUIPMENT.map(m => `<option ${m === n.equipment ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
-        <label class="field"><span>Tipo</span><select class="input" data-f="nxkind"><option value="weight" ${n.kind === 'weight' ? 'selected' : ''}>Peso e repetições</option><option value="reps" ${n.kind === 'reps' ? 'selected' : ''}>Peso corporal (repetições)</option></select></label>
-      </div>`;
-    });
+  newExercise() { openExerciseEditor({}); },
+  editExercise(el) {
+    const ex = S.customExercises.find(e => e.id === el.dataset.id);
+    if (ex) openExerciseEditor({ ex });
+  },
+  pickCreate() {
+    // cria um exercício no meio do treino/rotina e já deixa ele selecionado
+    openExerciseEditor({ name: ui.pick.q, onSaved: id => { ui.pick.sel.push(id); ui.pick.q = ''; rerenderTopModal(); } });
   },
   saveExercise() {
     const n = ui.newEx;
-    if (!n.name.trim()) { toast('Dê um nome ao exercício'); return; }
-    S.customExercises.push({ id: 'c-' + uid(), name: n.name.trim(), muscle: n.muscle, equipment: n.equipment, kind: n.kind, custom: true });
-    invalidateEx(); save(); closeModal(); render(); toast('Exercício criado');
+    const name = n.name.trim();
+    if (!name) { toast('Dê um nome ao exercício'); return; }
+    const dup = allExercises().find(e => e.id !== n.id && norm(e.name) === norm(name));
+    if (dup) { toast('Já existe um exercício com esse nome'); return; }
+    let id = n.id;
+    if (id) {
+      Object.assign(S.customExercises.find(e => e.id === id), { name, muscle: n.muscle, equipment: n.equipment, kind: n.kind });
+    } else {
+      id = 'c-' + uid();
+      S.customExercises.push({ id, name, muscle: n.muscle, equipment: n.equipment, kind: n.kind, custom: true, created: Date.now() });
+    }
+    invalidateEx(); save();
+    const onSaved = n.onSaved;
+    closeModal();
+    if (onSaved) onSaved(id);
+    else { render(); rerenderTopModal(); }
+    toast(n.id ? 'Exercício atualizado' : 'Exercício criado');
   },
   delExercise(el) {
     const id = el.dataset.id;
-    const used = S.workouts.some(w => w.exercises.some(e => e.exId === id)) || S.routines.some(r => r.exercises.some(e => e.exId === id));
-    if (used) { toast('Este exercício está em treinos ou rotinas'); return; }
-    S.customExercises = S.customExercises.filter(e => e.id !== id); invalidateEx(); save(); closeAllModals(); render();
+    const ex = S.customExercises.find(e => e.id === id);
+    if (!ex) return;
+    const used = S.workouts.some(w => w.exercises.some(e => e.exId === id)) || S.routines.some(r => r.exercises.some(e => e.exId === id))
+      || (S.active && S.active.exercises.some(e => e.exId === id));
+    if (used) { toast('Ele já está no seu histórico ou em rotinas. Você pode editá-lo.'); return; }
+    confirmBox('Apagar exercício?', `“${ex.name}” será apagado.`, 'Apagar', () => {
+      S.customExercises = S.customExercises.filter(e => e.id !== id); invalidateEx(); save(); closeAllModals(); render();
+    });
   },
+  exView(el) { ui.exView = el.dataset.v; render(); },
   // séries
   toggleSet(el) {
     const ei = +el.dataset.e, si = +el.dataset.s;
@@ -1062,7 +1118,7 @@ document.addEventListener('input', e => {
     case 'note': scopeObj(scope).exercises[+el.dataset.e].notes = el.value; if (scope === 'active') save(); autoGrow(el); break;
     case 'wname': S.active.name = el.value; save(); break;
     case 'rname': ui.draft.name = el.value; break;
-    case 'exq': ui.exQ = el.value; $('#exlist').innerHTML = exRows(filterExercises(ui.exQ, ui.exMuscle)); break;
+    case 'exq': ui.exQ = el.value; $('#exlist').innerHTML = exListHtml(); break;
     case 'pickq': ui.pick.q = el.value; $('#picklist').innerHTML = pickRows(); break;
     case 'nxname': ui.newEx.name = el.value; break;
     case 'bar': { const v = num(el.value); if (v !== null && v >= 0) { S.settings.bar = fromDisp(v); save(); } break; }

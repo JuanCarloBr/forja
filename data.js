@@ -2,14 +2,15 @@
 // kind: 'weight' = peso × reps; 'reps' = peso corporal (kg é carga extra, opcional)
 window.MUSCLES = [
   'Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps', 'Antebraço', 'Trapézio',
-  'Quadríceps', 'Posterior', 'Glúteos', 'Panturrilha', 'Abdômen'
+  'Quadríceps', 'Posterior', 'Glúteos', 'Panturrilha', 'Abdômen', 'Corpo inteiro', 'Cardio', 'Outro'
 ];
 
 window.MUSCLE_COLORS = {
   'Peito': '#f97316', 'Costas': '#3b82f6', 'Ombros': '#a855f7', 'Bíceps': '#14b8a6',
   'Tríceps': '#ec4899', 'Antebraço': '#64748b', 'Trapézio': '#6366f1',
   'Quadríceps': '#22c55e', 'Posterior': '#eab308', 'Glúteos': '#f43f5e',
-  'Panturrilha': '#0ea5e9', 'Abdômen': '#f97316'
+  'Panturrilha': '#0ea5e9', 'Abdômen': '#f97316',
+  'Corpo inteiro': '#c084fc', 'Cardio': '#ef4444', 'Outro': '#94a3b8'
 };
 
 window.EXERCISES = [
@@ -87,7 +88,7 @@ window.EXERCISES = [
   { id: 'russian-twist', name: 'Russian twist', muscle: 'Abdômen', equipment: 'Peso corporal', kind: 'reps' }
 ];
 
-window.EQUIPMENT = ['Barra', 'Halter', 'Máquina', 'Cabo', 'Peso corporal', 'Kettlebell', 'Outro'];
+window.EQUIPMENT = ['Barra', 'Halter', 'Máquina', 'Cabo', 'Peso corporal', 'Kettlebell', 'Smith', 'Elástico', 'Anilha', 'Outro'];
 
 // Modelos: [idDoExercício, séries, reps]
 window.TEMPLATES = [
