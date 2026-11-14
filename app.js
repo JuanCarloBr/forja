@@ -324,9 +324,9 @@ function weekStrip() {
 }
 function backupReminder() {
   const now = Date.now();
-  if (S.workouts.length < 5 || now - (S.lastBackup || 0) < 14 * DAY || now < (S.backupSnooze || 0)) return '';
+  if (!S.workouts.length || now - (S.lastBackup || 0) < 7 * DAY || now < (S.backupSnooze || 0)) return '';
   return `<section class="card remind"><b>Hora de fazer um backup</b>
-    <p class="muted">${S.lastBackup ? 'Seu último backup tem mais de 2 semanas.' : 'Você ainda não fez nenhum backup dos seus treinos.'} Guarde o arquivo no Drive ou no e-mail.</p>
+    <p class="muted">${S.lastBackup ? 'Seu último backup tem mais de 1 semana.' : 'Você ainda não fez nenhum backup dos seus treinos.'} Guarde o arquivo no Drive ou no e-mail. <b class="fg">Se você remover ou reinstalar o app, os treinos são apagados.</b></p>
     <div class="row gap"><button class="btn primary grow" data-a="exportData">Fazer backup</button><button class="btn" data-a="backupLater">Depois</button></div></section>`;
 }
 
@@ -660,9 +660,17 @@ function finishWorkout(updateRoutine) {
   stopRest();
   save(); closeAllModals(); render(); scrollTo(0, 0);
   const prs = wPrCount(done);
-  toast(prs ? `Treino salvo! 🏆 ${prs} recorde(s)` : 'Treino salvo!');
+  const askBackup = Date.now() - (S.lastBackup || 0) > 12 * 3600 * 1000;
+  if (!askBackup) toast(prs ? `Treino salvo! 🏆 ${prs} recorde(s)` : 'Treino salvo!');
   // O navegador costuma aceitar depois que a pessoa usa o app; tenta de novo ao salvar um treino.
   if (ui.persisted !== true) requestPersist();
+  // Oferece guardar uma cópia agora (só some se o backup é de menos de 12 horas atrás)
+  if (askBackup) {
+    openModal(() => sheetHead(prs ? `Treino salvo! 🏆 ${prs} recorde(s)` : 'Treino salvo!') + `<div class="pad stack">
+      <p class="muted">Seus treinos ficam só neste aparelho. <b class="fg">Se você remover ou reinstalar o app, eles são apagados.</b> Guarde uma cópia no Drive ou no e-mail.</p>
+      <button class="btn primary block" data-a="exportData">Salvar backup agora</button>
+      <button class="btn ghost block" data-a="closeModal">Agora não</button></div>`);
+  }
 }
 
 /* ---------- timer de descanso ---------- */
@@ -898,7 +906,7 @@ function settingsView() {
     ${hasPrev() ? '<button class="btn block" data-a="restorePrev">Desfazer última importação ou limpeza</button>' : ''}
     <p class="muted small">${S.lastBackup ? 'Último backup: ' + fmtDate(S.lastBackup, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Nenhum backup feito ainda.'}</p>
     <button class="btn danger-ghost block" data-a="wipe">Apagar todos os dados</button>
-    <p class="muted small">Seus dados ficam só neste aparelho. Faça backup de vez em quando.</p>
+    <p class="muted small">Seus dados ficam só neste aparelho. <b class="fg">Remover ou reinstalar o app apaga tudo</b>, então faça backup toda semana.</p>
   </div>`;
 }
 
@@ -1008,7 +1016,7 @@ const A = {
     S.workouts[i] = out;
     ui.draft = null; recomputeAllPRs(); save(); closeAllModals(); render(); toast('Treino atualizado');
   },
-  backupLater() { S.backupSnooze = Date.now() + 7 * DAY; save(); render(); },
+  backupLater() { S.backupSnooze = Date.now() + 2 * DAY; save(); render(); },
   toggleAwake() { S.settings.keepAwake = !S.settings.keepAwake; save(); syncWakeLock(); rerenderTopModal(); },
   restorePrev() {
     confirmBox('Desfazer?', 'Os dados voltam a ser como eram antes da última importação ou limpeza.', 'Desfazer', () => {
@@ -1199,11 +1207,24 @@ const A = {
   defaultRest() {
     menu('Descanso padrão', [0, 30, 45, 60, 90, 120, 150, 180, 240, 300].map(sec => ({ label: fmtRest(sec), fn: () => { S.settings.rest = sec; save(); closeModal(); render(); } })));
   },
-  exportData() {
-    const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  async exportData() {
+    const name = `fit-training-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const text = JSON.stringify(S, null, 2);
+    // No celular, abre a folha de compartilhar (Drive, e-mail, WhatsApp...); no computador, baixa o arquivo.
+    try {
+      const file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Backup Fit Training' });
+        S.lastBackup = Date.now(); save(); closeAllModals(); render(); toast('Backup salvo');
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // a pessoa cancelou: não conta como backup feito
+      /* outro erro: cai no download */
+    }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `fit-training-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     S.lastBackup = Date.now(); save();
