@@ -1,4 +1,4 @@
-# Forja: app de registro de treinos
+# Fit Training: app de registro de treinos
 
 Um app de musculação no estilo dos registradores de treino: rotinas, séries, timer de descanso, recordes e gráficos de progresso.
 É um app web instalável (PWA): funciona no navegador, pode ser instalado na tela inicial do celular e roda sem internet.

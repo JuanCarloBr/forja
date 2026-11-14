@@ -1,6 +1,6 @@
 {
-  "name": "Forja — Registro de treinos",
-  "short_name": "Forja",
+  "name": "Fit Training — Registro de treinos",
+  "short_name": "Fit Training",
   "description": "Registre seus treinos de musculação, acompanhe recordes e progresso.",
   "lang": "pt-BR",
   "start_url": "./",

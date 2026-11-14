@@ -284,7 +284,7 @@ function viewHome() {
   const ws = sortedWorkouts();
   const st = weekStats();
   const streak = streakWeeks();
-  const head = `<header class="head"><div class="brand"><span class="logo">${icon('train')}</span><div><h1>Forja</h1><small>${greeting()}</small></div></div>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
+  const head = `<header class="head"><div class="brand"><span class="logo">${icon('train')}</span><div><h1>Fit Training</h1><small>${greeting()}</small></div></div>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
   if (!ws.length) {
     return head + `<section class="empty card">
       <div class="empty-ic">${icon('train')}</div>
@@ -1203,7 +1203,7 @@ const A = {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `forja-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `fit-training-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     S.lastBackup = Date.now(); save();
