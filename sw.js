@@ -1,6 +1,6 @@
 // Guarda o app para funcionar sem internet.
 // Abre na hora com a cópia salva e busca a versão nova em segundo plano (vale na próxima abertura).
-const CACHE = 'forja-v5';
+const CACHE = 'forja-v6';
 const ASSETS = ['./', 'index.html', 'styles.css', 'data.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

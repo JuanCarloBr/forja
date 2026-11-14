@@ -283,7 +283,7 @@ function viewHome() {
   const ws = sortedWorkouts();
   const st = weekStats();
   const streak = streakWeeks();
-  const head = `<header class="head"><h1>Forja</h1>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
+  const head = `<header class="head"><div class="brand"><span class="logo">${icon('train')}</span><div><h1>Forja</h1><small>${greeting()}</small></div></div>${S.active ? '' : `<button class="btn primary small" data-a="tab" data-id="train">${icon('plus')} Treinar</button>`}</header>`;
   if (!ws.length) {
     return head + `<section class="empty card">
       <div class="empty-ic">${icon('train')}</div>
@@ -293,7 +293,7 @@ function viewHome() {
       <button class="btn ghost" data-a="seedDemo">Carregar dados de exemplo</button>
     </section>`;
   }
-  return head + backupReminder() + `
+  return head + backupReminder() + weekStrip() + `
     <section class="grid3">
       <div class="card stat"><small>Treinos na semana</small><b>${st.count}</b></div>
       <div class="card stat"><small>Sequência</small><b>${streak} sem.</b></div>
@@ -303,6 +303,24 @@ function viewHome() {
     <section class="stack">${ws.map(workoutCard).join('')}</section>`;
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  const hi = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  const n = streakWeeks();
+  return n > 1 ? `${hi}! ${n} semanas seguidas 🔥` : `${hi}! Pronto para treinar?`;
+}
+function weekStrip() {
+  const w0 = startOfWeek(Date.now()), today = startOfDay(Date.now());
+  const trained = new Set(S.workouts.map(w => startOfDay(w.start)));
+  const names = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(w0); d.setDate(d.getDate() + i);
+    const t = d.getTime(), on = trained.has(t);
+    html += `<div class="wd ${on ? 'on' : ''} ${t === today ? 'today' : ''}">${names[i]}<i>${on ? icon('check') : d.getDate()}</i></div>`;
+  }
+  return `<section class="card week" aria-label="Dias treinados nesta semana">${html}</section>`;
+}
 function backupReminder() {
   const now = Date.now();
   if (S.workouts.length < 5 || now - (S.lastBackup || 0) < 14 * DAY || now < (S.backupSnooze || 0)) return '';
@@ -455,7 +473,7 @@ function barChart(items, fmt) {
     const x = 4 + i * bw + bw * 0.18, y = H - pad - h;
     const last = i === items.length - 1;
     return `<g><title>${esc(it.label)}: ${esc(fmt(it.value))}</title>
-      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${Math.max(h, it.value ? 2 : 0).toFixed(1)}" rx="3" class="${last ? 'bar on' : 'bar'}"/>
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${Math.max(h, it.value ? 2 : 0).toFixed(1)}" rx="4" class="${last ? 'bar on' : 'bar'}"/>
       ${i % 2 === 1 || items.length <= 6 ? `<text x="${(x + bw * 0.32).toFixed(1)}" y="${H - 4}" class="axis" text-anchor="middle">${esc(it.label)}</text>` : ''}</g>`;
   }).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de barras">
@@ -473,11 +491,12 @@ function lineChart(points, fmt) {
   const sx = x => px + (x1 === x0 ? 0.5 : (x - x0) / (x1 - x0)) * (W - 2 * px);
   const sy = y => top + (1 - (y - y0) / (y1 - y0)) * (H - top - bottom);
   const d = points.map((p, i) => (i ? 'L' : 'M') + sx(p.x).toFixed(1) + ' ' + sy(p.y).toFixed(1)).join(' ');
-  const dots = points.map(p => `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="3" class="dot"><title>${fmtDate(p.x, { day: 'numeric', month: 'short' })}: ${esc(fmt(p.y))}</title></circle>`).join('');
+  const area = `${d} L${sx(x1).toFixed(1)} ${H - bottom} L${sx(x0).toFixed(1)} ${H - bottom} Z`;
+  const dots = points.map((p, i) => `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${i === points.length - 1 ? 4.5 : 3}" class="dot${i === points.length - 1 ? ' last' : ''}"><title>${fmtDate(p.x, { day: 'numeric', month: 'short' })}: ${esc(fmt(p.y))}</title></circle>`).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha">
     <text x="2" y="12" class="axis">${esc(fmt(y1))}</text>
     <text x="2" y="${H - bottom + 13}" class="axis">${esc(fmt(y0))}</text>
-    <path d="${d}" class="line"/>${dots}
+    <path d="${area}" class="area"/><path d="${d}" class="line"/>${dots}
     <text x="${px}" y="${H - 3}" class="axis">${fmtDate(x0, { day: 'numeric', month: 'short' })}</text>
     <text x="${W - px}" y="${H - 3}" class="axis" text-anchor="end">${fmtDate(x1, { day: 'numeric', month: 'short' })}</text></svg>`;
 }
@@ -924,9 +943,17 @@ function addTemplate(i) {
     sets: Array.from({ length: sets }, () => ({ type: 'N', w: null, r })) })) });
 }
 
+// Anima a entrada da tela só na troca de aba (não a cada série marcada).
+let enterTimer;
+function animateIn() {
+  const v = $('#view');
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+  clearTimeout(enterTimer); enterTimer = setTimeout(() => v.classList.remove('enter'), 700);
+}
+
 /* ---------- ações (cliques) ---------- */
 const A = {
-  tab(el) { ui.tab = el.dataset.id; render(); scrollTo(0, 0); },
+  tab(el) { ui.tab = el.dataset.id; render(); scrollTo(0, 0); animateIn(); },
   openWorkout() { ui.workoutOpen = true; render(); scrollTo(0, 0); },
   minimize() { ui.workoutOpen = false; render(); },
   startEmpty() { startWorkout(defaultWorkoutName(), []); },
@@ -1324,6 +1351,7 @@ try {
 /* ---------- início ---------- */
 if (S.active) ui.workoutOpen = true;
 render();
+animateIn();
 document.querySelectorAll('textarea.note').forEach(autoGrow);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
